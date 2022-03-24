@@ -25,7 +25,7 @@ namespace ros2_python_extension {
     rmw_serialized_message_t serialized_message = rmw_get_zero_initialized_serialized_message();
     auto allocator = rcl_get_default_allocator();
     rmw_serialized_message_init(&serialized_message, info.size, &allocator);
-    serialized_message.buffer = reinterpret_cast<uint8_t *>(info.ptr);
+    memcpy(serialized_message.buffer, info.ptr, info.size);
     serialized_message.buffer_length = info.size;
     auto ts = rosidl_typesupport_cpp::get_message_type_support_handle<T>();
 
@@ -35,6 +35,9 @@ namespace ros2_python_extension {
     if (result2 != RMW_RET_OK) {
       printf("Failed to deserialize message!\n");
     }
+
+    // deallocate message
+    rmw_serialized_message_fini(&serialized_message);
 
     return out;
   }
@@ -60,7 +63,12 @@ namespace ros2_python_extension {
     }
 
     // convert the result to python bytes by using the data and length
-    return {reinterpret_cast<const char *>(serialized_message.buffer), serialized_message.buffer_length};
+    py::bytes out = {reinterpret_cast<const char *>(serialized_message.buffer), serialized_message.buffer_length};
+
+    // deallocate message
+    rmw_serialized_message_fini(&serialized_message);
+
+    return out;
   }
 } // namespace ros2_python_extension
 #endif // ROS2_PYTHON_EXTENSION_SERIALIZATION_HPP
