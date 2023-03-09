@@ -21,23 +21,15 @@ namespace ros2_python_extension {
     // buffer_info is used to extract data pointer and size of bytes
     py::buffer_info info(py::buffer(bytes).request());
 
-    // initialize serialized message struct
-    rmw_serialized_message_t serialized_message = rmw_get_zero_initialized_serialized_message();
-    auto allocator = rcl_get_default_allocator();
-    rmw_serialized_message_init(&serialized_message, info.size, &allocator);
-    memcpy(serialized_message.buffer, info.ptr, info.size);
-    serialized_message.buffer_length = info.size;
-    auto ts = rosidl_typesupport_cpp::get_message_type_support_handle<T>();
+    // create the serialized message from python bytes object
+    rclcpp::SerializedMessage serialized_message(info.size);
+    serialized_message.get_rcl_serialized_message().buffer_length = info.size;
+    memcpy(serialized_message.get_rcl_serialized_message().buffer, info.ptr, info.size);
 
-    T out;
     // do the deserialization
-    rmw_ret_t result2 = rmw_deserialize(&serialized_message, ts, &out);
-    if (result2 != RMW_RET_OK) {
-      printf("Failed to deserialize message!\n");
-    }
-
-    // deallocate message
-    rmw_serialized_message_fini(&serialized_message);
+    T out;
+    rclcpp::Serialization<T> serializer;
+    serializer.deserialize_message(&serialized_message, &out);
 
     return out;
   }
@@ -50,23 +42,16 @@ namespace ros2_python_extension {
    */
   template<typename T>
   py::bytes toPython(T &msg) {
-    // initialize serialized message struct
-    rmw_serialized_message_t serialized_message = rmw_get_zero_initialized_serialized_message();
-    auto type_support = rosidl_typesupport_cpp::get_message_type_support_handle<T>();
-    auto allocator = rcl_get_default_allocator();
-    rmw_serialized_message_init(&serialized_message, 0u, &allocator);
+    // serialize the message
+    rclcpp::Serialization<T> serializer;
+    rclcpp::SerializedMessage serialized_message;
+    serializer.serialize_message(&msg, &serialized_message);
 
-    // do the serialization
-    rmw_ret_t result = rmw_serialize(&msg, type_support, &serialized_message);
-    if (result != RMW_RET_OK) {
-      printf("Failed to serialize message!\n");
-    }
-
-    // convert the result to python bytes by using the data and length
-    py::bytes out = {reinterpret_cast<const char *>(serialized_message.buffer), serialized_message.buffer_length};
-
-    // deallocate message
-    rmw_serialized_message_fini(&serialized_message);
+    // convert the serialized message to a python bytes object
+    py::bytes out = {
+      reinterpret_cast<const char *>(serialized_message.get_rcl_serialized_message().buffer),
+      serialized_message.get_rcl_serialized_message().buffer_length
+    };
 
     return out;
   }
