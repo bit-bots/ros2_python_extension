@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(ros2_python_extension)
 
 # Add support for C++17
@@ -16,10 +16,10 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 add_library(ros2_python_extension INTERFACE)
 target_include_directories(ros2_python_extension INTERFACE include)
 
-ament_target_dependencies(ros2_python_extension INTERFACE
-  rclcpp
-  pybind11
-  Python3
+target_link_libraries(ros2_python_extension INTERFACE
+  rclcpp::rclcpp
+  pybind11::headers
+  Python3::Python
 )
 
 install(DIRECTORY include/ DESTINATION include)
